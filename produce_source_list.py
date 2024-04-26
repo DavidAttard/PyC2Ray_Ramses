@@ -92,7 +92,9 @@ for i in range(len(x)):
         src.loc[(src['x']== grid_x) & (src['y']== grid_y) & (src['z']== grid_z), 'LMACH'] = mass[i] + src.loc[(src['x']== grid_x) & (src['y']== grid_y) & (src['z']== grid_z), 'LMACH']
         
         # We use equation (3) in Dixon et al. (2018)
-        src.loc[(src['x']== grid_x) & (src['y']== grid_y) & (src['z']== grid_z), 'LMACH_MassDep'] = ((mass[i]/9*10**8)-1/9) + src.loc[(src['x']== grid_x) & (src['y']== grid_y) & (src['z']== grid_z), 'LMACH_MassDep']
+        supp_factor = ((mass[i]/(9*(10**8)))-1/9)
+        if supp_factor >= 0:
+            src.loc[(src['x']== grid_x) & (src['y']== grid_y) & (src['z']== grid_z), 'LMACH_MassDep'] =  supp_factor*mass[i]+ src.loc[(src['x']== grid_x) & (src['y']== grid_y) & (src['z']== grid_z), 'LMACH_MassDep']
 
 src = src[(src['HMACH']!=0) | (src['LMACH']!=0) | (src['LMACH_MassDep']!=0)]
 
