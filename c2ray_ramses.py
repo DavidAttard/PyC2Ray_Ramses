@@ -334,10 +334,10 @@ class C2Ray_Ramses(C2Ray):
         return srcpos, normflux
     
     def read_density(self, z):
-        """ Read coarser density field from C2Ray-formatted file
+        """ Read coarser density field from ramses density produced using yt
 
         This method is meant for reading density field run with either N-body or hydro-dynamical simulations. The field is then smoothed on a coarse mesh grid.
-
+        The final ndens needs to be the baryonic 
         Parameters
         ----------
         n : int
