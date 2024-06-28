@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Similar code to part2cube.sh (makes use of arrays instead of for loops so should run slightly faster)
+
+#SBATCH -A lgreion
+#SBATCH --job-name="part2cube"
+#SBATCH --time=2:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+##SBATCH --mem=0
+# #SBATCH --partition=mem192
+#SBATCH --partition=booster
+#SBATCH --output=log/%x.%j.o
+#SBATCH --error=log/%x.%j.e
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=lc589@sussex.ac.uk
+#SBATCH --array=10-49
+#======START=====
+
+# Load necessary modules
+module load Stages/2024
+module load Intel
+
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+printf -v out "%03g" $SLURM_ARRAY_TASK_ID
+
+# Define the base directory for input files
+input_base_dir="/p/oldscratch/lgreion/conaboy1/runs/LG_09_18/full_box/DMO_512"
+# Define the base name for the output files
+output_base_name="cube_"
+
+file_number=$(printf "%05g" $SLURM_ARRAY_TASK_ID)
+
+
+input_file="${input_base_dir}/output_${file_number}"
+output_file="${output_base_name}${file_number}.dat"
+
+# Run the part2cube command
+/p/project/lgreion/david/ramses/utils/f90/part2cube -inp ${input_file} -out ${output_file} -lma 8 -nx 256 -ny 256 -nz 256
