@@ -256,78 +256,78 @@ class C2Ray_Ramses(C2Ray):
             # use density fields generated from yt
             src = np.loadtxt(file, skiprows=1)
 
-            #---------- No Supression Model -----------------
-            if len(src.shape) == 1:
-                srcpos = src[:3].T
-                srcpos = srcpos.reshape((3, 1))
-                normflux = np.array([(src[3] * mass2phot_hm / S_star_ref) + (src[4] * mass2phot_lm / S_star_ref)])
-            else:    
-                srcpos = src[:, :3].T
-                normflux = (src[:, 3] * mass2phot_hm / S_star_ref) + (src[:, 4] * mass2phot_hm / S_star_ref)
+            if self.source_model is None or self.source_model == 0:#---------- No Supression Model -----------------
+                if len(src.shape) == 1:
+                    srcpos = src[:3].T
+                    srcpos = srcpos.reshape((3, 1))
+                    normflux = np.array([(src[3] * mass2phot_hm / S_star_ref) + (src[4] * mass2phot_lm / S_star_ref)])
+                else:    
+                    srcpos = src[:, :3].T
+                    normflux = (src[:, 3] * mass2phot_hm / S_star_ref) + (src[:, 4] * mass2phot_hm / S_star_ref)
+            
+            if self.source_model == 1:#---------- Full Supression Model -----------------
+                if len(src.shape) == 1:
+                    srcpos = src[:3].T
+                    srcpos = srcpos.reshape((3, 1))
+                    # Fully suppress any LMACH source in a region with ion_frac > 0.9
+                    # The -1 is added to the src positions as they are saved in fortran indexing
+                    if self.xh[int(src[0]-1),int(src[1]-1),int(src[2]-1)] >0.9:
+                        src[4]=0
+                    normflux = np.array([(src[3] * mass2phot_hm / S_star_ref) + (src[4] * mass2phot_lm / S_star_ref)])
+                else:    
+                    srcpos = src[:, :3].T
+                    # Looping through all the sources
+                    for i in range(len(src)):
+                        if self.xh[int(src[i][0]-1), int(src[i][1]-1), int(src[i][2]-1)] > 0.9:
+                            # Fully supressing sources in ionized regions (>0.9)
+                            src[i][4] = 0
+                    normflux = (src[:, 3] * mass2phot_hm / S_star_ref) + (src[:, 4] * mass2phot_hm / S_star_ref)
 
-            # #---------- Full Supression Model -----------------
-            # if len(src.shape) == 1:
-            #     srcpos = src[:3].T
-            #     srcpos = srcpos.reshape((3, 1))
-            #     # Fully suppress any LMACH source in a region with ion_frac > 0.9
-            #     # The -1 is added to the src positions as they are saved in fortran indexing
-            #     if self.xh[int(src[0]-1),int(src[1]-1),int(src[2]-1)] >0.9:
-            #         src[4]=0
-            #     normflux = np.array([(src[3] * mass2phot_hm / S_star_ref) + (src[4] * mass2phot_lm / S_star_ref)])
-            # else:    
-            #     srcpos = src[:, :3].T
-            #     # Looping through all the sources
-            #     for i in range(len(src)):
-            #         if self.xh[int(src[i][0]-1), int(src[i][1]-1), int(src[i][2]-1)] > 0.9:
-            #             # Fully supressing sources in ionized regions (>0.9)
-            #             src[i][4] = 0
-            #     normflux = (src[:, 3] * mass2phot_hm / S_star_ref) + (src[:, 4] * mass2phot_hm / S_star_ref)
-
-            # #---------- Partially Supression Model -----------------
-            # if len(src.shape) == 1:
-            #     srcpos = src[:3].T
-            #     srcpos = srcpos.reshape((3, 1))
-            #     # If LMACH is in ionized region then efficiency is the same as HMACH
-            #     # The -1 is added to the src positions as they are saved in fortran indexing
-            #     if self.xh[int(src[0]-1),int(src[1]-1),int(src[2]-1)] >0.9:
-            #         src[4] = src[4] * mass2phot_hm
-            #     # If LMACH is not in ionized region then we just multiply by LMACH efficiency
-            #     else:
-            #         src[4] = src[4] * mass2phot_lm
-            #     normflux = np.array([(src[3] * mass2phot_hm / S_star_ref) + (src[4] / S_star_ref)])
-            # else:    
-            #     srcpos = src[:, :3].T
-            #     # Looping through all the sources
-            #     for i in range(len(src)):
-            #         if self.xh[int(src[i][0]-1), int(src[i][1]-1), int(src[i][2]-1)] > 0.9:
-            #             # Fully supressing sources in ionized regions (>0.9)
-            #             src[i][4] = src[i][4] * mass2phot_hm
-            #         else:
-            #             src[i][4] = src[i][4] * mass2phot_lm
-            #     normflux = (src[:, 3] * mass2phot_hm / S_star_ref) + (src[:, 4] / S_star_ref)
-
-            # # ---------- Mass-dependent suppression of LMACHs ----------
-            # if len(src.shape) == 1:
-            #     srcpos = src[:3].T
-            #     srcpos = srcpos.reshape((3, 1))
-            #     # If LMACH is in ionized region then efficiency gradually supressed depending on mass
-            #     # The -1 is added to the src positions as they are saved in fortran indexing
-            #     if self.xh[int(src[0]-1),int(src[1]-1),int(src[2]-1)] >0.9:
-            #         src[5] = src[5] * mass2phot_hm
-            #     # If LMACH is not in ionized region then we just multiply original mass by HMACH efficiency
-            #     else:
-            #         src[5] = src[4] * mass2phot_hm
-            #     normflux = np.array([(src[3] * mass2phot_hm / S_star_ref) + (src[5] / S_star_ref)])
-            # else:    
-            #     srcpos = src[:, :3].T
-            #     # Looping through all the sources
-            #     for i in range(len(src)):
-            #         if self.xh[int(src[i][0]-1), int(src[i][1]-1), int(src[i][2]-1)] > 0.9:
-            #             # Fully supressing sources in ionized regions (>0.9)
-            #             src[i][5] = src[i][5] * mass2phot_hm
-            #         else:
-            #             src[i][5] = src[i][4] * mass2phot_hm
-            #     normflux = (src[:, 3] * mass2phot_hm / S_star_ref) + (src[:, 5] / S_star_ref)
+            if self.source_model == 2:#---------- Partially Supression Model -----------------
+                if len(src.shape) == 1:
+                    srcpos = src[:3].T
+                    srcpos = srcpos.reshape((3, 1))
+                    # If LMACH is in ionized region then efficiency is the same as HMACH
+                    # The -1 is added to the src positions as they are saved in fortran indexing
+                    if self.xh[int(src[0]-1),int(src[1]-1),int(src[2]-1)] >0.9:
+                        src[4] = src[4] * mass2phot_hm
+                    # If LMACH is not in ionized region then we just multiply by LMACH efficiency
+                    else:
+                        src[4] = src[4] * mass2phot_lm
+                    normflux = np.array([(src[3] * mass2phot_hm / S_star_ref) + (src[4] / S_star_ref)])
+                else:    
+                    srcpos = src[:, :3].T
+                    # Looping through all the sources
+                    for i in range(len(src)):
+                        if self.xh[int(src[i][0]-1), int(src[i][1]-1), int(src[i][2]-1)] > 0.9:
+                            # Fully supressing sources in ionized regions (>0.9)
+                            src[i][4] = src[i][4] * mass2phot_hm
+                        else:
+                            src[i][4] = src[i][4] * mass2phot_lm
+                    normflux = (src[:, 3] * mass2phot_hm / S_star_ref) + (src[:, 4] / S_star_ref)
+            
+            if self.source_model == 3: # ---------- Mass-dependent suppression of LMACHs ----------
+                if len(src.shape) == 1:
+                    srcpos = src[:3].T
+                    srcpos = srcpos.reshape((3, 1))
+                    # If LMACH is in ionized region then efficiency gradually supressed depending on mass
+                    # The -1 is added to the src positions as they are saved in fortran indexing
+                    if self.xh[int(src[0]-1),int(src[1]-1),int(src[2]-1)] >0.9:
+                        src[5] = src[5] * mass2phot_hm
+                    # If LMACH is not in ionized region then we just multiply original mass by HMACH efficiency
+                    else:
+                        src[5] = src[4] * mass2phot_hm
+                    normflux = np.array([(src[3] * mass2phot_hm / S_star_ref) + (src[5] / S_star_ref)])
+                else:    
+                    srcpos = src[:, :3].T
+                    # Looping through all the sources
+                    for i in range(len(src)):
+                        if self.xh[int(src[i][0]-1), int(src[i][1]-1), int(src[i][2]-1)] > 0.9:
+                            # Fully supressing sources in ionized regions (>0.9)
+                            src[i][5] = src[i][5] * mass2phot_hm
+                        else:
+                            src[i][5] = src[i][4] * mass2phot_hm
+                    normflux = (src[:, 3] * mass2phot_hm / S_star_ref) + (src[:, 5] / S_star_ref)
 
         self.printlog('\n---- Reading source file with total of %d ionizing source:\n%s' %(normflux.size, file))
         self.printlog(' min, max source mass : %.3e  %.3e [Msun] and min, mean, max number of ionising sources : %.3e  %.3e  %.3e [1/s]' %(normflux.min()/mass2phot_hm*S_star_ref, normflux.max()/mass2phot_hm*S_star_ref, normflux.min()*S_star_ref, normflux.mean()*S_star_ref, normflux.max()*S_star_ref))
