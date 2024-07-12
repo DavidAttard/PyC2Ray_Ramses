@@ -1,12 +1,18 @@
-# Program which provided a cube_*.dat file from a DMO sim converts it to a 
+# Program whihh provided a cube_*.dat file from a DMO sim converts it to a 
 # baryonic denisty field
 
 import numpy as np
 
-path_to_cube = '/p/scratch/lgreion/david/full_box/DMO_1024/dens_256/test_dens/'
-path_to_snap = '/p/oldscratch/lgreion/conaboy1/runs/LG_09_18/full_box/DMO_512/'
+path_to_cube = '/p/scratch/lgreion/david/full_box/DMO_512/dens_256/'
+path_to_snap = '/p/scratch/lgreion/conaboy1/runs/LG_09_18/full_box/DMO_512_HR/'
+save_path = './baryonic_dens/'
 start_snap = 10
 end_snap = 49
+Ngrid = 256**3 # size of the mesh
+
+# Cosmology
+h = 0.677
+OmegaB = 0.048
 
 for i in range(start_snap,end_snap+1):
     
@@ -27,19 +33,19 @@ for i in range(start_snap,end_snap+1):
         assert(blk == blksize) # we can check we're reading in the right amount of data
         cube = np.fromfile(f, dtype=np.float32, count=count).reshape((nn[1], nn[0], nn[2]))
         
-        h = 0.677
+        
         pc=  3.086e18 #1 pc in cm
         Mpc = 1e6*pc
         G_grav = 6.6732e-8
 
         H0 = 100.0*h
         H0cgs = H0*1e5/Mpc
-        OmegaB = 0.048
+        
 
         rho_crit_0 = 3.0*H0cgs*H0cgs/(8.0*np.pi*G_grav)
 
         # baryonic density field in (comoving) g/cm^3
-        baryonic_dens = cube*rho_crit_0*OmegaB
+        baryonic_dens = cube*rho_crit_0*OmegaB*Ngrid 
 
     # Obtaining the redshift
     info_fn = path_to_snap+'output_{0:05d}/info_{0:05d}.txt'.format(i)
@@ -52,6 +58,6 @@ for i in range(start_snap,end_snap+1):
     z = (1 / aexp) - 1
     z = round(z,3)
 
-    np.save('dens_cgs_{:.3f}.npy'.format(z), baryonic_dens)
+    np.save(save_path+'dens_cgs_{:.3f}.npy'.format(z), baryonic_dens)
 
     
