@@ -12,34 +12,23 @@ import sys
 import glob
 import re
 
-import glob
-
 i = int(sys.argv[1])
 
-
-AHF_directory = '/p/scratch/hestiaeor/david/HYDRO_256_4096_CRAL_KF_PAD_LMAX17/AHF/{0:03d}/halos'.format(i)
-
+# Directory path and constants
+AHF_directory = f'/p/scratch/hestiaeor/david/HYDRO_256_4096_CRAL_KF_PAD_LMAX17/AHF/{i:03d}/halos'
 
 # Define the size of the mesh
 N = 256
 h = 0.677
-HMACH = (1.43e9)/h # in solar masses
+HMACH = (1.43e9) / h  # in solar masses
+boxsize = 100  # Mpc
 
-boxsize = 100 #Mpc
+AHF_directory = '/p/scratch/lgreion/david/full_box/DMO_1024_HR/AHF/{0:03d}/halos'.format(i)
 
-# Loading list of redshifts
-redshifts = np.loadtxt('/p/scratch/hestiaeor/david/hestia-pyc2ray/z_list.txt')
-
-# Create meshgrid
-x, y, z = np.meshgrid(range(N), range(N), range(N))
-
-# Flatten the meshgrid arrays
-x_flat = x.flatten()
-y_flat = y.flatten()
-z_flat = z.flatten()
-
-# Create DataFrame
-src = pd.DataFrame({'x': x_flat+1, 'y': y_flat+1, 'z': z_flat+1, 'HMACH': np.zeros(len(x_flat)), 'LMACH': np.zeros(len(x_flat)), 'LMACH_MassDep': np.zeros(len(x_flat))})
+# Prepare the output grid: N^3 cells, 3 fields (HMACH, LMACH, LMACH_MassDep)
+HMACH_grid = np.zeros((N, N, N))
+LMACH_grid = np.zeros((N, N, N))
+LMACH_MassDep_grid = np.zeros((N, N, N))
 
 # Pattern to match files ending with "_halos"
 pattern = AHF_directory + "/*_halos"
@@ -63,43 +52,52 @@ if match:
     print(redshift)
     redshift  = float(redshift)
 
+print(redshift)
+
+# Read the halo catalog
 df = pd.read_csv(AHF_file, delim_whitespace=True)
 
-x = np.array(df['Xc(6)'])
-y = np.array(df['Yc(7)'])
-z = np.array(df['Zc(8)'])
+# Extract position and mass data
+x = np.array(df['Xc(6)']) / 1000.0  # Convert to Mpc
+y = np.array(df['Yc(7)']) / 1000.0
+z = np.array(df['Zc(8)']) / 1000.0
+mass = np.array(df['Mhalo(4)']) / h  # Mass in solar masses
 
-mass = np.array(df['Mhalo(4)'])/h # Mass in solar masses
+# Convert positions to grid indices
+grid_x = np.floor((x / boxsize) * N).astype(int)
+grid_y = np.floor((y / boxsize) * N).astype(int)
+grid_z = np.floor((z / boxsize) * N).astype(int)
 
+# Ensure that grid indices stay within bounds
+grid_x = np.clip(grid_x, 0, N - 1)
+grid_y = np.clip(grid_y, 0, N - 1)
+grid_z = np.clip(grid_z, 0, N - 1)
 
-for i in range(len(x)):
-    
-    # First we check if Halos is an HMACH
-    if mass[i] >= HMACH:
-        # Calculate grid cell indices for the halo
-        grid_x = int((x[i]/1000) / (boxsize / N)) +1
-        grid_y = int((y[i]/1000) / (boxsize / N)) +1
-        grid_z = int((z[i]/1000) / (boxsize / N)) +1
-        
-        src.loc[(src['x']== grid_x) & (src['y']== grid_y) & (src['z']== grid_z), 'HMACH'] = mass[i] + src.loc[(src['x']== grid_x) & (src['y']== grid_y) & (src['z']== grid_z), 'HMACH']
-
-    if mass[i] < HMACH:
-        # Calculate grid cell indices for the halo
-        grid_x = int((x[i]/1000) / (boxsize / N)) +1
-        grid_y = int((y[i]/1000) / (boxsize / N)) +1
-        grid_z = int((z[i]/1000) / (boxsize / N)) +1
-        
-        src.loc[(src['x']== grid_x) & (src['y']== grid_y) & (src['z']== grid_z), 'LMACH'] = mass[i] + src.loc[(src['x']== grid_x) & (src['y']== grid_y) & (src['z']== grid_z), 'LMACH']
-        
-        # We use equation (3) in Dixon et al. (2018)
-        supp_factor = ((mass[i]/(9*(10**8)))-1/9)
+# Update grid mass values
+for j in range(len(mass)):
+    if mass[j] >= HMACH:
+        HMACH_grid[grid_x[j], grid_y[j], grid_z[j]] += mass[j]
+    else:
+        LMACH_grid[grid_x[j], grid_y[j], grid_z[j]] += mass[j]
+        supp_factor = ((mass[j] / (9 * 10**8)) - 1/9)
         if supp_factor >= 0:
-            src.loc[(src['x']== grid_x) & (src['y']== grid_y) & (src['z']== grid_z), 'LMACH_MassDep'] =  supp_factor*mass[i]+ src.loc[(src['x']== grid_x) & (src['y']== grid_y) & (src['z']== grid_z), 'LMACH_MassDep']
+            LMACH_MassDep_grid[grid_x[j], grid_y[j], grid_z[j]] += supp_factor * mass[j]
 
-src = src[(src['HMACH']!=0) | (src['LMACH']!=0) | (src['LMACH_MassDep']!=0)]
+# Convert grid data into DataFrame for output
+src = pd.DataFrame({
+    'x': np.repeat(np.arange(1, N + 1), N * N),
+    'y': np.tile(np.repeat(np.arange(1, N + 1), N), N),
+    'z': np.tile(np.arange(1, N + 1), N * N),
+    'HMACH': HMACH_grid.flatten(),
+    'LMACH': LMACH_grid.flatten(),
+    'LMACH_MassDep': LMACH_MassDep_grid.flatten()
+})
 
-with open('/p/scratch/hestiaeor/david/hestia-pyc2ray/Ramses_KF_hydro/src/src_{:.3f}.txt'.format(redshift), 'w') as file:
-            # Write the number of grid cells
-            file.write(f"{len(src)}\n")
-            src.to_csv(file, sep=' ', index=False, header=False)
+# Filter out cells with no halo mass
+src = src[(src['HMACH'] != 0) | (src['LMACH'] != 0) | (src['LMACH_MassDep'] != 0)]
 
+# Write output file
+output_file = f'/p/scratch/lgreion/david/full_box/DMO_1024_HR/src/src_testing/new_src_{redshift:.3f}.txt'
+with open(output_file, 'w') as file:
+    file.write(f"{len(src)}\n")
+    src.to_csv(file, sep=' ', index=False, header=False)
