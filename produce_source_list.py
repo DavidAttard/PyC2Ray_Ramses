@@ -1,7 +1,7 @@
 # Provided you have a halo catalogue produced using AHF this program will read the _halos file 
 # and generate the required src_{z}.txt file where the first line of the txt file contains the 
 # number of sources, the 1st-3rd column contains the x,y,z indexing (in Fortran Formar i.e. starting from 1).
-# The 4th and 5th column contains the halo mass in solar mass/h of the HMACH halos and LMACH halos respectively
+# The 4th and 5th column contains the halo mass in solar mass of the HMACH halos and LMACH halos respectively
 # and the 6th column contains the LMACH masses multiplied by a factor of (1/(9x10^8) -1/9) as in eqn. 3 of
 # Dixon et al. (2018) which is used for the mass-dependant suppression source model. 
 # This code can be run using the batch script run_source_list.sh to run this code in parallel.
